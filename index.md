@@ -11,11 +11,11 @@ usemathjax: true
 The recent paper [Rethinking Attention with Performers](https://arxiv.org/abs/2009.14794) constructs a new efficient attention mechanism in an elegant way. It strongly reduces the computational cost for long sequences, while keeping the intriguing properties of the original attention mechanism.
 In doing so, Performers have a complexity only linear in the input length, in contrast to the quadratic complexity of standard transformers. This is a major breakthrough in the strive of improving transformer models.
 
-The nicely written [Performer blog post](https://ai.googleblog.com/2020/10/rethinking-attention-with-performers.html) explains the paper very well.
+The [Performer blog post](https://ai.googleblog.com/2020/10/rethinking-attention-with-performers.html) can be used as a proper explanation of the paper.
 
 In this blog post, we look at the Performer from a Hopfield Network point of view and relate aspects of the Performer architecture to findings in the field of associative memories and Hopfield Networks.
 This blog post has three contributions:
-- **Performers resemble classical Hopfield Networks**. Recently, we showed that the update rule of modern continuous Hopfield Networks is the attention of the transformer. We now show that generalized kernelizable attention of the Performer resembles the update rule of classical Hopfield Networks.
+- **Performers resemble classical Hopfield Networks**. [Recently](https://ml-jku.github.io/hopfield-layers/), we showed that the update rule of modern continuous Hopfield Networks is the attention of the transformer. We now show that generalized kernelizable attention of the Performer resembles the update rule of classical Hopfield Networks.
 - **Sparseness increases memory capacity**. We point out that sparseness considerably increases the memory capacity in classical Hopfield Networks and associative memories, and discuss
 how sparseness is achieved by the Performer.
 - **Performer normalization relates to continuous Hopfield Network activation function**. We correlate the normalization term $$\widehat{D}^{-1}$$ of the Performer with activation functions of classical continuous Hopfield Networks. 
@@ -46,7 +46,7 @@ $$
 \end{equation}
 $$
 
-The weight matrix $$\boldsymbol{W}$$ stores the patterns, which is retrieved starting with a **state pattern** $$\boldsymbol{\xi}$$.
+The weight matrix $$\boldsymbol{W}$$ stores the patterns, from which a pattern is retrieved starting with a **state pattern** $$\boldsymbol{\xi}$$.
 
 ---
 **Nomenclature**
@@ -143,11 +143,12 @@ For continuous classical Hopfield Networks the energy function of Eq. \eqref{eq:
 
 $$
 \begin{equation}
-\text{E} (\boldsymbol{\xi}) = -\frac{1}{2}\boldsymbol{\xi}^T \boldsymbol{W} \boldsymbol{\xi} + \boldsymbol{\xi}^T\boldsymbol{b} + \sum_{i=1}^{d} \int_0^{\xi_i} f^{-1}(y) dy \ . \tag{7}
+\text{E} (\boldsymbol{\xi}) = -\frac{1}{2}\boldsymbol{\xi}^T \boldsymbol{W} \boldsymbol{\xi} + \boldsymbol{\xi}^T\boldsymbol{b} + \sum_{i=1}^{d} \int_0^{\xi[i]} f^{-1}(y) dy \ , \tag{7}
 \label{eq:energy_hopfield_continuous}
 \end{equation}
 $$
 
+where $$\xi[i]$$ denotes the $$i$$-th component of $$\boldsymbol{\xi}$$.
 In [Hopfield's paper](https://www.pnas.org/content/pnas/81/10/3088.full.pdf) and in an informative [Scholarpedia article](http://www.scholarpedia.org/article/Hopfield_network),
 it is shown that the energy function $$\text{E} (\boldsymbol{\xi})$$ of Eq. \eqref{eq:energy_hopfield_continuous} is a **Lyapunov function** of the (continuous) dynamics of $$\boldsymbol{\xi}$$.
 In literature, update rules are derived via the underlying ordinary differential equation of the Lyapunov function ([Hopfield](https://www.pnas.org/content/pnas/81/10/3088.full.pdf), [Koiran](http://cognet.mit.edu/journal/10.1162/neco.1994.6.3.459), [Scholarpedia article](http://www.scholarpedia.org/article/Hopfield_network)).
@@ -155,7 +156,7 @@ Here, we derive the update rule by applying the **Concave-Convex-Procedure** (CC
 on the energy function of Eq. \eqref{eq:energy_hopfield_continuous}:
 
 - The total energy $$\text{E}(\boldsymbol{\xi})$$ is split into a convex and a concave term: $$\text{E}(\boldsymbol{\xi}) = \text{E}_1(\boldsymbol{\xi}) + \text{E}_2(\boldsymbol{\xi})$$
-- The term $$\sum_{i=1}^{d} \int_0^{\xi_i} f^{-1}(y) dy = \text{E}_1(\boldsymbol{\xi}) $$ is convex. We will later see which conditions are sufficient for $$\text{E}_1(\boldsymbol{\xi})$$ to be convex.
+- The term $$\sum_{i=1}^{d} \int_0^{\xi[i]} f^{-1}(y) dy = \text{E}_1(\boldsymbol{\xi}) $$ is convex. We will later see which conditions are sufficient for $$\text{E}_1(\boldsymbol{\xi})$$ to be convex.
 - The term $$-\frac{1}{2}\boldsymbol{\xi}^T \boldsymbol{W} \boldsymbol{\xi} + \boldsymbol{\xi}^T\boldsymbol{b} = \text{E}_2(\boldsymbol{\xi})$$ is concave. Since $$\boldsymbol{W}$$ is positive semi-definite (every matrix which can be written as sum of outer products is), $$\frac{1}{2}\boldsymbol{\xi}^T \boldsymbol{W} \boldsymbol{\xi}$$ is convex.
 - The CCCP applied to $$\text{E}$$ is:
 
@@ -169,7 +170,7 @@ $$
 
 $$
 \begin{equation}
-\nabla_{\boldsymbol{\xi}}\left( \sum_{i=1}^{d} \int_0^{\xi_i} f^{-1}(y) dy \right)(\boldsymbol{\xi}^{t+1}) = \nabla_{\boldsymbol{\xi}} \left( -\frac{1}{2}\boldsymbol{\xi}^T \boldsymbol{W} \boldsymbol{\xi} + \boldsymbol{\xi}^T\boldsymbol{b} \right)(\boldsymbol{\xi}^t) \tag{9}
+\nabla_{\boldsymbol{\xi}}\left( \sum_{i=1}^{d} \int_0^{\xi[i]} f^{-1}(y) dy \right)(\boldsymbol{\xi}^{t+1}) = - \nabla_{\boldsymbol{\xi}} \left( -\frac{1}{2}\boldsymbol{\xi}^T \boldsymbol{W} \boldsymbol{\xi} + \boldsymbol{\xi}^T\boldsymbol{b} \right)(\boldsymbol{\xi}^t) \tag{9}
 \label{eq:update_cpp2}
 \end{equation}
 $$
@@ -186,7 +187,7 @@ To see this, we argue as follows: If $$f(y)$$ is stricly increasing, then also $
 Consequently, the derivative of $$f^{-1}(y)$$ is larger than zero and therefore 
 
 $$
-\frac{ \partial^2 \text{E}_1(\boldsymbol{\xi})}{\partial \xi_i \partial \xi_j}= \begin{cases} (f^{-1})'(\xi_i)>0 & \text{ if } i=j \\ 0   & \, \text{else}\end{cases}.
+\frac{ \partial^2 \text{E}_1(\boldsymbol{\xi})}{\partial \xi[i] \partial \xi[j]}= \begin{cases} (f^{-1})'(\xi[i])>0 & \text{ if } i=j \\ 0   & \, \text{else}\end{cases}.
 $$
 
 This implies that the Hessian of 
@@ -210,6 +211,8 @@ $$
 \end{equation}
 $$
 
+
+Note that by abuse of notation we apply $$f$$ elementwise here.
 This now looks very familiar to a one-layer neural network.
 Similarly as in Eq. \eqref{eq:update_Hopfield}, for multiple, say $$M$$, state patterns summarized in a matrix $$\boldsymbol{Q}=(\boldsymbol{\xi}_1,\ldots,\boldsymbol{\xi}_M)$$ and $$\boldsymbol{b}=0$$,
 the update rule reads
@@ -226,7 +229,7 @@ $$
 ---
 **Nomenclature change**
 
-We now change from $$N$$ (stored patterns) to $$L$$ (number of input tokens) to be concise with the Performer paper.
+We now change from $$N$$ (stored patterns) to $$L$$ (number of input tokens) to be consistent with the Performer paper.
 
 ---
 
@@ -239,6 +242,7 @@ On the right, the linear attention framework of the Performer is shown. The line
 {:refdef: style="text-align: center;"}
 ![not found](assets/performer.png){:width="1000px"}
 {: refdef}
+[Source: [Rethinking Attention with Performers](https://arxiv.org/abs/2009.14794)]
 
 Let's start by writing down the transformer self-attention $$\boldsymbol{Z}$$ for $$L$$ tokens, hidden dimension $$d$$, token input dimension $$i$$:
 
@@ -272,12 +276,12 @@ This is a huge disadvantage of the Transformer for long sequences / many tokens.
 ---
 
 In the Performer paper, the FAVOR+ mechanism is introduced and the transformer self-attention is substituted by
-generalized kernelizable attention, whose complexity scales linearly complexity with the number of input tokens $$L$$.
+generalized kernelizable attention, whose complexity scales linearly with the number of input tokens $$L$$.
 The idea of the Performer is to decompose the attention matrix into a matrix product:
 
 $$
 \begin{equation}
-\boldsymbol{A}_{\text{Perf}} = \widehat{\boldsymbol{D}}^{-1} \boldsymbol{Q'} \boldsymbol{K'} \ , \tag{16}
+\boldsymbol{A}_{\text{Perf}} = \widehat{\boldsymbol{D}}^{-1} \boldsymbol{Q'} \boldsymbol{K'}^T \ , \tag{16}
 \end{equation}
 $$
 
@@ -303,7 +307,7 @@ $$
 \boldsymbol{Z'} \in \mathbb{R}^{L \times d} \ , \\
 \boldsymbol{Q'} \in \mathbb{R}^{L \times r} \ , \\
 \boldsymbol{K'}^T \in \mathbb{R}^{r \times L} \ , \\
-\boldsymbol{V} \in \mathbb{R}^{L \times i} \ . 
+\boldsymbol{V} \in \mathbb{R}^{L \times d} \ . 
 $$
 
 ---
@@ -324,7 +328,7 @@ $$
 $$
 
 which **resembles the transposed 1-step update of classical binary (polar) and continuous Hopfield Networks** introduced for pattern retrieval in Eq. \eqref{eq:update_Hopfield}
-and in Eq. \eqref{eq:update_Hopfield_continuous}, respectively.
+and Eq. \eqref{eq:update_Hopfield_continuous}, respectively.
 
 Both the mapping $$\phi: \mathbb{R}^d \rightarrow \mathbb{R}^r$$ of Eq. \eqref{eq:performer_attention}
 and the normalization $$\widehat{\boldsymbol{D}}^{-1}$$ of Eq. \eqref{eq:performer_attention} play an important role.
@@ -376,10 +380,10 @@ $$
 where $$\boldsymbol{z}$$ are the row vectors of $$\boldsymbol{Q}$$ and $$\boldsymbol{K}$$ (i.e. column vectors of $$\boldsymbol{K}^T$$),
 $$f_1,\ldots,f_l$$ are functions that map from $$\mathbb{R}\rightarrow\mathbb{R}$$, $$h$$ is a function that maps from $$\mathbb{R}^d \rightarrow \mathbb{R}$$,
 and $$\boldsymbol{w}_1,\ldots,\boldsymbol{w}_m \overset{iid}{\sim} \mathcal{D}$$ are vectors from some distribution $$\mathcal{D}\in \mathcal{P}(\mathbb{R})^d$$. It also immediately follows that $$r=l \cdot m$$.
-In the paper, it turns out to work best if $$m=r$$, $$l=1$$, $$\boldsymbol{w}_1,\ldots,\boldsymbol{w}_r$$ are orthogonal random features, and the ReLU function is used for $$f_1$$.
+In the paper, it turns out to work best if $$m=r$$, $$l=1$$, $$\boldsymbol{w}_1,\ldots,\boldsymbol{w}_r$$ are orthogonal random feature maps, and the ReLU function is used for $$f_1$$.
 
 ---
-- ReLU activation functions **enforce sparseness of $$\boldsymbol{Q'}$$ and $$\boldsymbol{K'}$$**. This nicely complies with the theory of classical Hopfield Networks,
+- ReLU activation functions **enforce sparseness of $$\boldsymbol{Q'}$$ and $$\boldsymbol{K'}$$**. This complies with the theory of classical Hopfield Networks,
 i.e. that **sparse patterns yield very large storage capacities**.
 
 - The $$\tanh$$ function of Eq. \eqref{eq:update_Hopfield_continuous} and the Performer normalization $$\widehat{\boldsymbol{D}}^{-1}$$ of Eq. \eqref{eq:performer_attention} play similar roles.
@@ -387,7 +391,7 @@ Namely, they **both keep the result of the one-step pattern retrieval bounded**.
 
 - The **approximation of the original softmax attention** and the subsequent **preservation of the intruiging properties of the original attention mechanism** is achieved via the normalization $$\widehat{\boldsymbol{D}}^{-1}$$ and the introduction of a kernel function, see Eq. \eqref{eq:kernel_function}. It is interesting to note that the 
 softmax function of the original attention mechanism can only be approximated in expectation.
-In the Performer, both having the approximation based on only a view samples and setting $$f(\cdot)$$ to ReLU does not comply with a proper approximation of the softmax function.
+In the Performer, both having the approximation based on only a few samples and setting $$f(\cdot)$$ to ReLU does not comply with a proper approximation of the softmax function.
 However, this setting is reported to work best in the Performer paper. 
 
 ---
@@ -539,8 +543,7 @@ For clarity, let's now visualize what is going on here:
 
 We will now again exploit the insight from above, namely that **sparse patterns yield very large storage capacities**.
 Therefore, in Eq. \eqref{eq:update_performer_one_step} all components $$\boldsymbol{\xi}[l] > 0.5$$ and all components $$\boldsymbol{x}_i[l] > 0.5$$ of $$\boldsymbol{X}^T$$  are set to zero,
-giving $$\boldsymbol{\xi}_{\text{sparse}}$$ and $$\boldsymbol{X}^T_{\text{sparse}}$$. Interestingly, in this case too much sparseness hurts more than it helps. 
-The sparse version of Eq. \eqref{eq:update_performer_one_step} now reads:
+giving $$\boldsymbol{\xi}_{\text{sparse}}$$ and $$\boldsymbol{X}^T_{\text{sparse}}$$. The sparse version of Eq. \eqref{eq:update_performer_one_step} now reads:
 
 $$
 \begin{equation}
@@ -568,6 +571,13 @@ For clarity, let's now again visualize what is going on here:
 {: refdef}
 
 
+
+
+## Conclusion
+The aim of this blog post has been to describe relations between the recently introduced Performer models and properties of continuous classical and continuous modern Hopfield Networks: 
+- Performers resemble classical Hopfield Networks. 
+- Sparseness increases memory capacity. 
+- Performer normalization relates to continuous Hopfield Network activation function.
 
 ## Material
 
