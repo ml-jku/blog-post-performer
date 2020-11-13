@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+
+    
+    <script async src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML" type="text/javascript"></script>
+    
+    
+    
+    <meta charset="UTF-8">
+
+<!-- Begin Jekyll SEO tag v2.6.1 -->
+<title>Looking at the Performer from a Hopfield point of view | blog-post-performer</title>
+<meta name="generator" content="Jekyll v3.9.0" />
+<meta property="og:title" content="Looking at the Performer from a Hopfield point of view" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Blog post" />
+<meta property="og:description" content="Blog post" />
+<link rel="canonical" href="http://localhost:4000/" />
+<meta property="og:url" content="http://localhost:4000/" />
+<meta property="og:site_name" content="blog-post-performer" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2020-09-10T17:03:39+02:00" />
+<script type="application/ld+json">
+{"@type":"WebSite","url":"http://localhost:4000/","headline":"Looking at the Performer from a Hopfield point of view","dateModified":"2020-09-10T17:03:39+02:00","datePublished":"2020-09-10T17:03:39+02:00","name":"blog-post-performer","description":"Blog post","@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#157878">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="stylesheet" href="/assets/css/style.css?v=bb70f8d77c097da506275e47a3690a923687f1f5">
+  </head>
+  <body>
+    
+    <header class="page-header" role="banner">
+      <h1 class="project-name">Looking at the Performer from a Hopfield point of view</h1>
+      <h2 class="project-tagline">Blog post</h2>
+      
+        <a href="https://github.com/brandste/blog-post-performer" class="btn">View on GitHub</a>
+      
+      
+    </header>
+
+    <main id="content" class="main-content" role="main">
+      <link rel="stylesheet" href="assets/css/accordion.css" />
+
+<p>The recent paper <a href="https://arxiv.org/abs/2009.14794">Rethinking Attention with Performers</a> constructs a new efficient attention mechanism in an elegant way. It strongly reduces the computational cost for long sequences, while keeping the intriguing properties of the original attention mechanism.
+In doing so, Performers have a complexity only linear in the input length, in contrast to the quadratic complexity of standard transformers. This is a major breakthrough in the strive of improving transformer models.</p>
+
+<p>The nicely written <a href="https://ai.googleblog.com/2020/10/rethinking-attention-with-performers.html">Performer blog post</a> explains the paper very well.</p>
+
+<p>In this blog post, we look at the Performer from a Hopfield Network point of view and relate aspects of the Performer architecture to findings in the field of associative memories and Hopfield Networks.
+This blog post has three contributions:</p>
+<ul>
+  <li><strong>Performers resemble classical Hopfield Networks</strong>. Recently, we showed that the update rule of modern continuous Hopfield Networks is the attention of the transformer. We now show that generalized kernelizable attention of the Performer resembles the update rule of classical Hopfield Networks.</li>
+  <li><strong>Sparseness increases memory capacity</strong>. We point out that sparseness considerably increases the memory capacity in classical Hopfield Networks and associative memories, and discuss
+how sparseness is achieved by the Performer.</li>
+  <li><strong>Performer normalization relates to continuous Hopfield Network activation function</strong>. We correlate the normalization term \(\widehat{D}^{-1}\) of the Performer with activation functions of classical continuous Hopfield Networks.</li>
+</ul>
+
+<p>This blog post is structured as follows:
+We start with a short review of classical Hopfield Networks, then interpret generalized kernelizabel attention of the Performer
+as 1-step update of a classical Hopfield Network (discrete and continuous), and discuss sparseness and normalization
+of the Performer. Finally, we show an exemplary implementation of a continuous classical Hopfield Network for illustrative purpose.</p>
+
+<p>With this blog post we aim at contributing to a better understanding of transformer models.
+This blog post loosely builds on our paper <a href="https://arxiv.org/abs/2008.02217">Hopfield Networks is All You Need</a> and the corresponding <a href="https://ml-jku.github.io/hopfield-layers/">blog post</a>.</p>
+
+<h2 id="classical-hopfield-networks">Classical Hopfield Networks</h2>
+
+<p>This part is taken from our <a href="https://ml-jku.github.io/hopfield-layers/">Hopfield Networks is All You Need blog post</a>.
+A very good overview of Hopfield Networks can e.g. be found <a href="http://www.scholarpedia.org/article/Hopfield_network">here</a>.</p>
+
+<h3 id="binary-polar-classical-hopfield-networks">Binary (Polar) Classical Hopfield Networks</h3>
+
+<p>The simplest associative memory is just a <strong>sum of outer products</strong> of the \(N\) patterns \(\{\boldsymbol{x}_i\}_{i=1}^N\) that we want to store (Hebbian learning rule). In classical Hopfield Networks these patterns are polar or binary, i.e. \(\boldsymbol{x}_i \in \{ -1,1 \}^d\) or \(\boldsymbol{x}_i \in \{ 0,1 \}^d\), respectively, where \(d\) is the length of the patterns. The corresponding weight matrix \(\boldsymbol{W}\) for \(\boldsymbol{X}=(\boldsymbol{x_1},\ldots,\boldsymbol{x}_N)\) is:</p>
+
+\[\begin{equation}
+\boldsymbol{W} = \boldsymbol{X}\boldsymbol{X}^T . \tag{1}
+\end{equation}\]
+
+<p>The weight matrix \(\boldsymbol{W}\) stores the patterns, which is retrieved starting with a <strong>state pattern</strong> \(\boldsymbol{\xi}\).</p>
+
+<hr />
+<p><strong>Nomenclature</strong></p>
+
+<p>We denote the \(N\) <strong>stored patterns</strong> as \(\{\boldsymbol{x}_i\}_{i=1}^N\) and any <strong>state pattern</strong> or <strong>state</strong> as \(\boldsymbol{\xi}\).</p>
+
+<hr />
+
+<p>The basic <strong>synchronuous update rule</strong> is to repeatedly multiply the state pattern \(\boldsymbol{\xi}\) with the weight matrix \(\boldsymbol{W}\), subtract the bias and take the sign:</p>
+
+\[\begin{equation}
+\boldsymbol{\xi^{t+1}} =  \text{sgn}(\boldsymbol{W}\boldsymbol{\xi}^t - \boldsymbol{b}) \ , \tag{2}
+\label{eq:restorage}
+\end{equation}\]
+
+<p>where \(\boldsymbol{b} \in \mathbb{R}^d\) is a bias vector, which can be interpreted as threshold for every component.
+The <strong>asynchronous update rule</strong> performs this update only for one component of \(\boldsymbol{\xi}\) and then selects the next component.
+Convergence is reached if \(\boldsymbol{\xi^{t+1}} = \boldsymbol{\xi^{t}}\).</p>
+
+<p>The asynchronous version of the update rule of Eq. \eqref{eq:restorage} minimizes the <strong>energy function</strong> \(\text{E}\):</p>
+
+\[\begin{equation}
+\text{E} = -\frac{1}{2}\boldsymbol{\xi}^T \boldsymbol{W} \boldsymbol{\xi} + \boldsymbol{\xi}^T\boldsymbol{b} = -\frac{1}{2} \sum_{i=1}^d\sum_{j=1}^d w_{ij}\xi_i\xi_j + \sum_{i=1}^d b_i\xi_i \ . \tag{3}
+\label{eq:energy_hopfield}
+\end{equation}\]
+
+<p>As derived in the papers of <a href="https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&amp;arnumber=58341">Bruck</a>, <a href="https://www.sciencedirect.com/science/article/pii/0166218X85900290">Goles-Chacc et al.</a>
+and <a href="https://authors.library.caltech.edu/7427/1/HOPpnas82.pdf">the original Hopfield paper</a>,
+the convergence properties are dependent on the structure of the weight matrix \(\boldsymbol{W}\) and the method by which the nodes are updated:</p>
+
+<ul>
+  <li>For asynchronous updates with \(w_{ii} \geq 0\) and \(w_{ij} = w_{ji}\), the updates converge to a stable state.</li>
+  <li>For synchronous updates with \(w_{ij} = w_{ji}\), the updates converge to a stable state or a limit cycle of length 2.</li>
+</ul>
+
+<p>For the asynchronous update rule and symmetric weights, \(\text{E}(\boldsymbol{\xi}^{t+1}) \leq \text{E}(\boldsymbol{\xi}^{t})\) holds. When \(\text{E}(\boldsymbol{\xi}^{t+1}) = \text{E}(\boldsymbol{\xi}^{t})\) for the update of every component of \(\boldsymbol{\xi}^t\), a local minimum in \(\text{E}\) is reached.
+For multiple, say \(M\), state patterns summarized in a matrix \(\boldsymbol{Q}=(\boldsymbol{\xi}_1,\ldots,\boldsymbol{\xi}_M)\) and \(\boldsymbol{b}=0\),
+the update rule reads</p>
+
+\[\begin{equation}
+\widetilde{\boldsymbol{Q}} = \text{sgn}(\boldsymbol{W}\boldsymbol{Q}) \ . \tag{4}
+\label{eq:update_Hopfield}
+\end{equation}\]
+
+<p>In the <a href="https://ml-jku.github.io/hopfield-layers/">Hopfield Networks is All You Need blog post</a>, we illustrate pattern retrieval.</p>
+
+<p style="text-align: center;"><img src="/assets/single_pat_img/homer_bw.png" alt="not found" width="300px" /></p>
+
+<p>The <strong>weight matrix</strong> \(\boldsymbol{W}\) is the outer product of this black and white image \(\boldsymbol{x}_{\text{Homer}}\):</p>
+
+\[\begin{equation}
+\boldsymbol{W} = \boldsymbol{x}_{\text{Homer}} \boldsymbol{x}_{\text{Homer}}^T \ , \qquad \boldsymbol{x}_{\text{Homer}} \in \{ -1,1\}^d \ , \tag{5}
+\label{eq:weight_matrix}
+\end{equation}\]
+
+<p>where for this example \(d = 64 \times 64\).</p>
+
+<p>It takes one update until the original image is restored.</p>
+
+<p style="text-align: center;"><img src="/assets/single_pat_img/homer_bw_masked_retrieved.png" alt="not found" width="600px" /></p>
+
+<p>What happens if we store <strong>more than one pattern</strong>? The weight matrix is then built from the sum of outer products of <strong>six stored patterns</strong> (six input images):</p>
+
+\[\begin{equation}
+\boldsymbol{W} = \sum_{i=1}^6 \boldsymbol{x}_i \boldsymbol{x}_i^T \ , \qquad \boldsymbol{x}_i \in \{ -1,1\}^d \ . \tag{6}
+\end{equation}\]
+
+<p style="text-align: center;"><img src="/assets/multi_pat_img/experiment_115.png" alt="not found" /></p>
+
+<p>The example patterns are correlated, and therefore the retrieval has errors.</p>
+
+<h3 id="continuous-classical-hopfield-networks">Continuous Classical Hopfield Networks</h3>
+
+<p>The Performer works with continuous activations while the Hopfield Network is binary. However, also continuous versions of Hopfield Networks have been proposed.
+The <strong>energy function of continuous classical Hopfield Networks</strong> is treated by <a href="https://www.pnas.org/content/pnas/81/10/3088.full.pdf">Hopfield</a> in 1984,
+<a href="http://cognet.mit.edu/journal/10.1162/neco.1994.6.3.459">Koiran</a> in 1994 and <a href="https://www.semanticscholar.org/paper/On-the-dynamics-of-discrete-time%2C-continuous-state-Wang/d0e873086aec12ee222bab6f92f752590eefecf4">Wang</a> in 1998.
+For continuous classical Hopfield Networks the energy function of Eq. \eqref{eq:energy_hopfield} is expanded to:</p>
+
+\[\begin{equation}
+\text{E} (\boldsymbol{\xi}) = -\frac{1}{2}\boldsymbol{\xi}^T \boldsymbol{W} \boldsymbol{\xi} + \boldsymbol{\xi}^T\boldsymbol{b} + \sum_{i=1}^{d} \int_0^{\xi_i} f^{-1}(y) dy \ . \tag{7}
+\label{eq:energy_hopfield_continuous}
+\end{equation}\]
+
+<p>In <a href="https://www.pnas.org/content/pnas/81/10/3088.full.pdf">Hopfield’s paper</a> and in an informative <a href="http://www.scholarpedia.org/article/Hopfield_network">Scholarpedia article</a>,
+it is shown that the energy function \(\text{E} (\boldsymbol{\xi})\) of Eq. \eqref{eq:energy_hopfield_continuous} is a <strong>Lyapunov function</strong> of the (continuous) dynamics of \(\boldsymbol{\xi}\).
+In literature, update rules are derived via the underlying ordinary differential equation of the Lyapunov function (<a href="https://www.pnas.org/content/pnas/81/10/3088.full.pdf">Hopfield</a>, <a href="http://cognet.mit.edu/journal/10.1162/neco.1994.6.3.459">Koiran</a>, <a href="http://www.scholarpedia.org/article/Hopfield_network">Scholarpedia article</a>).
+Here, we derive the update rule by applying the <strong>Concave-Convex-Procedure</strong> (CCCP) described by <a href="https://papers.nips.cc/paper/2125-the-concave-convex-procedure-cccp.pdf">Yuille and Rangarajan</a>
+on the energy function of Eq. \eqref{eq:energy_hopfield_continuous}:</p>
+
+<ul>
+  <li>The total energy \(\text{E}(\boldsymbol{\xi})\) is split into a convex and a concave term: \(\text{E}(\boldsymbol{\xi}) = \text{E}_1(\boldsymbol{\xi}) + \text{E}_2(\boldsymbol{\xi})\)</li>
+  <li>The term \(\sum_{i=1}^{d} \int_0^{\xi_i} f^{-1}(y) dy = \text{E}_1(\boldsymbol{\xi})\) is convex. We will later see which conditions are sufficient for \(\text{E}_1(\boldsymbol{\xi})\) to be convex.</li>
+  <li>The term \(-\frac{1}{2}\boldsymbol{\xi}^T \boldsymbol{W} \boldsymbol{\xi} + \boldsymbol{\xi}^T\boldsymbol{b} = \text{E}_2(\boldsymbol{\xi})\) is concave. Since \(\boldsymbol{W}\) is positive semi-definite (every matrix which can be written as sum of outer products is), \(\frac{1}{2}\boldsymbol{\xi}^T \boldsymbol{W} \boldsymbol{\xi}\) is convex.</li>
+  <li>The CCCP applied to \(\text{E}\) is:</li>
+</ul>
+
+\[\begin{equation}
+\nabla_{\boldsymbol{\xi}}\text{E}_1(\boldsymbol{\xi}^{t+1}) = - \nabla_{\boldsymbol{\xi}}\text{E}_2(\boldsymbol{\xi}^{t}) \tag{8}
+\label{eq:update_cpp1}
+\end{equation}\]
+
+\[\begin{equation}
+\nabla_{\boldsymbol{\xi}}\left( \sum_{i=1}^{d} \int_0^{\xi_i} f^{-1}(y) dy \right)(\boldsymbol{\xi}^{t+1}) = \nabla_{\boldsymbol{\xi}} \left( -\frac{1}{2}\boldsymbol{\xi}^T \boldsymbol{W} \boldsymbol{\xi} + \boldsymbol{\xi}^T\boldsymbol{b} \right)(\boldsymbol{\xi}^t) \tag{9}
+\label{eq:update_cpp2}
+\end{equation}\]
+
+\[\begin{equation}
+f^{-1}(\boldsymbol{\xi}^{t+1}) = \boldsymbol{W}\boldsymbol{\xi}^t - \boldsymbol{b} \ . \tag{10}
+\label{eq:update_cpp3}
+\end{equation}\]
+
+<p>In order for \(\text{E}_1(\boldsymbol{\xi})\) to be convex, it is sufficient to ensure that \(f(y)\) is strictly increasing.
+To see this, we argue as follows: If \(f(y)\) is stricly increasing, then also \(f^{-1}(y)\) is strictly increasing.
+Consequently, the derivative of \(f^{-1}(y)\) is larger than zero and therefore</p>
+
+\[\frac{ \partial^2 \text{E}_1(\boldsymbol{\xi})}{\partial \xi_i \partial \xi_j}= \begin{cases} (f^{-1})'(\xi_i)&gt;0 &amp; \text{ if } i=j \\ 0   &amp; \, \text{else}\end{cases}.\]
+
+<p>This implies that the Hessian of 
+\(\text{E}_1(\boldsymbol{\xi})\) is a diagonal matrix with strictly positive diagonal elements, thus it is positive definite and therefore \(\text{E}_1(\boldsymbol{\xi})\) is convex.</p>
+
+<p>Many activation functions fulfill these requirements. In the literature, usually the \(\tanh\) or sigmoid function is used.</p>
+
+<p>If we now set \(f(y) = \tanh\), we can rewrite Eq. \eqref{eq:update_cpp3} as:</p>
+
+\[\begin{equation}
+\tanh^{-1}(\boldsymbol{\xi}^{t+1}) = \boldsymbol{W}\boldsymbol{\xi}^t - \boldsymbol{b} \tag{11}
+\label{eq:update_cpp4}
+\end{equation}\]
+
+\[\begin{equation}
+\boldsymbol{\xi}^{t+1} = \tanh \left( \boldsymbol{W}\boldsymbol{\xi}^t - \boldsymbol{b} \right) \ . \tag{12}
+\label{eq:update_cpp5}
+\end{equation}\]
+
+<p>This now looks very familiar to a one-layer neural network.
+Similarly as in Eq. \eqref{eq:update_Hopfield}, for multiple, say \(M\), state patterns summarized in a matrix \(\boldsymbol{Q}=(\boldsymbol{\xi}_1,\ldots,\boldsymbol{\xi}_M)\) and \(\boldsymbol{b}=0\),
+the update rule reads</p>
+
+\[\begin{equation}
+\widetilde{\boldsymbol{Q}} = \tanh(\boldsymbol{W}\boldsymbol{Q}) \ . \tag{13}
+\label{eq:update_Hopfield_continuous}
+\end{equation}\]
+
+<h2 id="performer-attention-resembles-update-of-classical-hopfield-networks">Performer Attention Resembles Update of Classical Hopfield Networks</h2>
+
+<hr />
+<p><strong>Nomenclature change</strong></p>
+
+<p>We now change from \(N\) (stored patterns) to \(L\) (number of input tokens) to be concise with the Performer paper.</p>
+
+<hr />
+
+<p>The following image is taken from the <a href="https://arxiv.org/abs/2009.14794">Rethinking Attention with Performers</a> paper.
+On the left, the transformer self-attention mechanism introduced in the paper <a href="https://arxiv.org/abs/1706.03762">Attention is All You Need</a> is shown.
+The complexity of the transformer self-attention is quadratic with respect to the number of input tokens \(L\).
+On the right, the linear attention framework of the Performer is shown. The linear <strong>generalized kernelizable attention</strong> is implemented via the so-called
+<strong>FAVOR+</strong> (<em>Fast Attention Via positive Orthogonal Random features</em>) mechanism.</p>
+
+<p style="text-align: center;"><img src="/assets/performer.png" alt="not found" width="1000px" /></p>
+
+<p>Let’s start by writing down the transformer self-attention \(\boldsymbol{Z}\) for \(L\) tokens, hidden dimension \(d\), token input dimension \(i\):</p>
+
+\[\boldsymbol{Z} = \text{softmax} \left(\frac{1}{\sqrt{d_{K}}} \boldsymbol{Q}\boldsymbol{K}^T \right) \boldsymbol{V} \ , \tag{14}\]
+
+<p>where the dimensions of the involved matrices are the following:</p>
+
+\[\boldsymbol{Z} \in \mathbb{R}^{L \times d} \ , \\
+\boldsymbol{Q} = \boldsymbol{XW}_Q \ , \quad \boldsymbol{Q} \in \mathbb{R}^{L \times d} \ , \boldsymbol{X} \in \mathbb{R}^{L \times i} \ , \boldsymbol{W}_Q \in \mathbb{R}^{i \times d} \ , \\
+\boldsymbol{K}^T = \boldsymbol{W}^T_{K} \boldsymbol{X}^T \ , \quad \boldsymbol{K}^T \in \mathbb{R}^{d \times L} \ , \boldsymbol{W}^T_{K} \in \mathbb{R}^{d \times i} \ , \boldsymbol{X}^T \in \mathbb{R}^{i \times L} \ ,\\
+\boldsymbol{V} = \boldsymbol{XW}_V \ , \quad \boldsymbol{V} \in \mathbb{R}^{L \times d} \ , \boldsymbol{X} \in \mathbb{R}^{L \times i} \ , \boldsymbol{W}_V \in \mathbb{R}^{i \times d} \ .\]
+
+<p>\(d_{K}\) denotes some normalization constant, often it is set to \(d_K=d\).</p>
+
+<hr />
+<p><strong>Complexity of the transformer attention</strong></p>
+
+<p>The attention matrix</p>
+
+\[\boldsymbol{A} = \text{softmax} \left(\frac{1}{\sqrt{d_{K}}} \boldsymbol{Q}\boldsymbol{K}^T \right) \tag{15}\]
+
+<p>has the dimensions \(\boldsymbol{A} \in \mathbb{R}^{L \times L}\) and its <strong>complexity therefore scales quadratically</strong>.
+This is a huge disadvantage of the Transformer for long sequences / many tokens.</p>
+
+<hr />
+
+<p>In the Performer paper, the FAVOR+ mechanism is introduced and the transformer self-attention is substituted by
+generalized kernelizable attention, whose complexity scales linearly complexity with the number of input tokens \(L\).
+The idea of the Performer is to decompose the attention matrix into a matrix product:</p>
+
+\[\begin{equation}
+\boldsymbol{A}_{\text{Perf}} = \widehat{\boldsymbol{D}}^{-1} \boldsymbol{Q'} \boldsymbol{K'} \ , \tag{16}
+\end{equation}\]
+
+<p>where \(\boldsymbol{Q'}\) and \(\boldsymbol{K'}\) can be directly computed from the queries \(\boldsymbol{Q}\) and the keys \(\boldsymbol{K}\)
+using a kernel function \(\phi: \mathbb{R}^d \rightarrow \mathbb{R}^r\), which maps:</p>
+
+\[\boldsymbol{Q} \rightarrow \boldsymbol{Q'} \ , \quad \boldsymbol{Q'} \in \mathbb{R}^{L \times r} \ , \\
+\boldsymbol{K}^T \rightarrow \boldsymbol{K'}^T \ , \quad \boldsymbol{K'}^T \in \mathbb{R}^{r \times L} \ . \\\]
+
+<p>Consequently, the generalized kernelizable attention \(\boldsymbol{Z'}\) reads</p>
+
+\[\boldsymbol{Z'} = \widehat{\boldsymbol{D}}^{-1} \left( \boldsymbol{Q'} \left( \boldsymbol{K'}^T \boldsymbol{V} \right) \right) \ , \tag{17}
+\label{eq:performer_attention}\]
+
+<p>where \(\widehat{\boldsymbol{D}}^{-1} = \text{diag}\left(\boldsymbol{Q'}\boldsymbol{K'}^T\boldsymbol{1}_L \right)\), and 
+the dimensions of the involved matrices are the following:</p>
+
+\[\boldsymbol{Z'} \in \mathbb{R}^{L \times d} \ , \\
+\boldsymbol{Q'} \in \mathbb{R}^{L \times r} \ , \\
+\boldsymbol{K'}^T \in \mathbb{R}^{r \times L} \ , \\
+\boldsymbol{V} \in \mathbb{R}^{L \times i} \ .\]
+
+<hr />
+<p><strong>Complexity of the Performer attention</strong></p>
+
+<p>The matrix product \(\boldsymbol{K'}^T \boldsymbol{V} = \boldsymbol{W}\) can be computed in linear time in \(L\), the matrix product \(\boldsymbol{Q'}\boldsymbol{W}\)
+can also be computed in linear time in \(L\). \(\widehat{\boldsymbol{D}}^{-1}\) is a diagonal matrix and can thus also be computed in linear time in \(L\).
+To summarize, for \(\boldsymbol{Z'}\) the <strong>complexity therefore scales linearly with \(L\)</strong>. This is the big achievement of the Performer.</p>
+
+<hr />
+
+<p>The matrix product \(\boldsymbol{K'}^T \boldsymbol{V} = \boldsymbol{W}\) is the sum of outer products and has the dimension \(\boldsymbol{W} \in \mathbb{R}^{r \times d}\).
+For \(r = d\), we have</p>
+
+\[\widetilde{\boldsymbol{Q'}} = \boldsymbol{Q'} \boldsymbol{W} \ , \tag{18}
+\label{eq:performer_attention2}\]
+
+<p>which <strong>resembles the transposed 1-step update of classical binary (polar) and continuous Hopfield Networks</strong> introduced for pattern retrieval in Eq. \eqref{eq:update_Hopfield}
+and in Eq. \eqref{eq:update_Hopfield_continuous}, respectively.</p>
+
+<p>Both the mapping \(\phi: \mathbb{R}^d \rightarrow \mathbb{R}^r\) of Eq. \eqref{eq:performer_attention}
+and the normalization \(\widehat{\boldsymbol{D}}^{-1}\) of Eq. \eqref{eq:performer_attention} play an important role.
+This is discussed in the next paragraph.</p>
+
+<h2 id="the-performer-related-to-classical-hopfield-networks">The Performer Related to Classical Hopfield Networks</h2>
+
+<p>We now relate the Performer to known facts from the field of Hopfield Networks and associative memories, namely sparseness, 1-step update and storage capacity.
+We further look at continuous classical Hopfield Networks
+and investigate the generalized kernelizable attention of the Performer, especially
+by looking at the mapping \(\phi: \mathbb{R}^d \rightarrow \mathbb{R}^r\)
+and the normalization \(\widehat{\boldsymbol{D}}^{-1}\) of Eq. \eqref{eq:performer_attention}.</p>
+
+<h3 id="about-sparseness-1-step-update-and-storage-capacity">About sparseness, 1-step update and storage capacity</h3>
+
+<p>One obvious difference between the update of classical Hopfield Networks stated in Eq. \eqref{eq:update_Hopfield}
+and the matrix product \(\boldsymbol{Q'} \left( \boldsymbol{K'}^T \boldsymbol{V} \right) = \boldsymbol{Q'} \boldsymbol{W}\)
+of the generalized kernelizable attention of Eq. \eqref{eq:performer_attention2} is that the classical Hopfield Network update can be iteratively applied
+multiple times, whereas the matrix product \(\boldsymbol{Q'} \boldsymbol{W}\) is applied only once.
+One-step update for classical Hopfield Networks was e.g. investigated in <a href="http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.45.2550&amp;rep=rep1&amp;type=pdf">Schwenker et al.</a>
+and in <a href="https://www.sciencedirect.com/science/article/pii/S0893608012002298">Palm</a>.
+The storage capacity of classical binary Hopfield Networks for fixed-point retrieval of patterns (multiple updates) with a small percentage of errors is \(C \cong 0.14d\).
+In <a href="http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.45.2550&amp;rep=rep1&amp;type=pdf">Schwenker et al.</a>,
+it is shown that for auto-association <strong>one-step retrieval</strong> achieves <strong>nearly the same capacity values</strong> as fixed-point retrieval does.
+Furthermore, in <a href="https://www.sciencedirect.com/science/article/pii/S0893608012002298">Palm</a> it is stated that using <strong>sparse patterns</strong> turns out to achieve <strong>much higher capacity values</strong> (\(C=0.72d\) for one-step retrieval, which is a factor 5 higher than the classical network capacity \(C=0.14d\)). In <a href="https://iopscience.iop.org/article/10.1209/0295-5075/6/2/002/pdf">Tsodyks et al.</a>, the storage capacity is even found to increase with \(C(p) \sim \frac{1}{p|\ln p|}d\), where \(p\) is the percentage of non-zero weights.
+An overview of the storage capacities can be found in <a href="https://www.researchgate.net/publication/38112825_Memory_Capacities_for_Synaptic_and_Structural_Plasticity">Knoblauch et al.</a>,
+storage capacities in classical Hopfield Networks are also discussed in our blog <a href="https://ml-jku.github.io/hopfield-layers/">Hopfield Networks is All You Need</a>.</p>
+
+<p>To summarize: <strong>Sparse patterns yield very large storage capacities</strong>, also for one-step retrieval.
+Below we have a closer look at the mapping \(\phi: \mathbb{R}^d \rightarrow \mathbb{R}^r\) in the <a href="https://arxiv.org/abs/2009.14794">Rethinking Attention with Performers</a>
+paper and relate the choices of the paper with this statement.</p>
+
+<h3 id="about-the-mapping-phi-and-about-the-normalization-widehatboldsymbold-1">About the mapping \(\phi\) and about the normalization \(\widehat{\boldsymbol{D}}^{-1}\)</h3>
+
+<p>In the paper <a href="https://arxiv.org/abs/2009.14794">Rethinking Attention with Performers</a>, a kernel function \(\phi: \mathbb{R}^d \rightarrow \mathbb{R}^r\)
+maps \(\boldsymbol{Q} \rightarrow \boldsymbol{Q'}\) and \(\boldsymbol{K}^T \rightarrow \boldsymbol{K'}^T\).
+The kernel function \(\phi\) is of the form:</p>
+
+\[\begin{equation}
+\phi(\boldsymbol{z}) = \frac{h(\boldsymbol{z})}{\sqrt{r}} \left(f_1(\boldsymbol{w}_1^T\boldsymbol{z}),\ldots,f_1(\boldsymbol{w}_m^T\boldsymbol{z}),\ldots,f_l(\boldsymbol{w}_1^T\boldsymbol{z}),\ldots,f_l(\boldsymbol{w}_m^T\boldsymbol{z}) \right)\ , \tag{19}
+\label{eq:kernel_function}
+\end{equation}\]
+
+<p>where \(\boldsymbol{z}\) are the row vectors of \(\boldsymbol{Q}\) and \(\boldsymbol{K}\) (i.e. column vectors of \(\boldsymbol{K}^T\)),
+\(f_1,\ldots,f_l\) are functions that map from \(\mathbb{R}\rightarrow\mathbb{R}\), \(h\) is a function that maps from \(\mathbb{R}^d \rightarrow \mathbb{R}\),
+and \(\boldsymbol{w}_1,\ldots,\boldsymbol{w}_m \overset{iid}{\sim} \mathcal{D}\) are vectors from some distribution \(\mathcal{D}\in \mathcal{P}(\mathbb{R})^d\). It also immediately follows that \(r=l \cdot m\).
+In the paper, it turns out to work best if \(m=r\), \(l=1\), \(\boldsymbol{w}_1,\ldots,\boldsymbol{w}_r\) are orthogonal random features, and the ReLU function is used for \(f_1\).</p>
+
+<hr />
+<ul>
+  <li>
+    <p>ReLU activation functions <strong>enforce sparseness of \(\boldsymbol{Q'}\) and \(\boldsymbol{K'}\)</strong>. This nicely complies with the theory of classical Hopfield Networks,
+i.e. that <strong>sparse patterns yield very large storage capacities</strong>.</p>
+  </li>
+  <li>
+    <p>The \(\tanh\) function of Eq. \eqref{eq:update_Hopfield_continuous} and the Performer normalization \(\widehat{\boldsymbol{D}}^{-1}\) of Eq. \eqref{eq:performer_attention} play similar roles.
+Namely, they <strong>both keep the result of the one-step pattern retrieval bounded</strong>.</p>
+  </li>
+  <li>
+    <p>The <strong>approximation of the original softmax attention</strong> and the subsequent <strong>preservation of the intruiging properties of the original attention mechanism</strong> is achieved via the normalization \(\widehat{\boldsymbol{D}}^{-1}\) and the introduction of a kernel function, see Eq. \eqref{eq:kernel_function}. It is interesting to note that the 
+softmax function of the original attention mechanism can only be approximated in expectation.
+In the Performer, both having the approximation based on only a view samples and setting \(f(\cdot)\) to ReLU does not comply with a proper approximation of the softmax function.
+However, this setting is reported to work best in the Performer paper.</p>
+  </li>
+</ul>
+
+<hr />
+
+<h2 id="continuous-hopfield-networks-for-illustrative-purpose">Continuous Hopfield Networks for Illustrative Purpose</h2>
+
+<p>In this last part of the blog, we look at some illustrative examples:</p>
+<ul>
+  <li>Continuous classical Hopfield Networks</li>
+  <li>Sparse continuous classical Hopfield Networks</li>
+  <li>Modern continuous Hopfield Networks</li>
+  <li>Sparse modern continuous Hopfield Networks</li>
+  <li>Performer Networks</li>
+  <li>Sparse Performer Networks</li>
+</ul>
+
+<h4 id="continuous-classical-hopfield-networks-1">Continuous Classical Hopfield Networks</h4>
+
+<p>We first implement a <strong>continuous classical Hopfield Network</strong>,
+and we are going to retrieve a continuous Homer (\(\boldsymbol{\xi}\)) out of many continuous stored patterns \(\boldsymbol{X}=(\boldsymbol{x}_1,\ldots,\boldsymbol{x}_N)\) using Eq. \eqref{eq:update_cpp5}.
+Instead of polar patterns, i.e. \(\boldsymbol{x}_i \in \{ -1, 1\}^d\) where \(d\) is the length of the patterns, patterns are now continuous, i.e.
+\(\boldsymbol{x}_i \in \left[ -1, 1\right]^d\).</p>
+
+<p>We start again with the retrieval of only one stored pattern, which is not a too hard job.</p>
+
+<p style="text-align: center;"><img src="/assets/continuous_hopfield_network/experiment_with_1_pattern_continuous.png" alt="not found" width="600px" /></p>
+
+<p>The next task is again a retrieval out of six stored patterns, which already does not work any more.</p>
+
+<p style="text-align: center;"><img src="/assets/continuous_hopfield_network/experiment_with_6_patterns_continuous.png" alt="not found" width="1000px" /></p>
+
+<h4 id="sparse-continuous-classical-hopfield-networks">Sparse Continuous Classical Hopfield Networks</h4>
+
+<p>We will now exploit the insight from above, namely that <strong>sparse patterns yield very large storage capacities</strong>.
+Therefore, all components \(\boldsymbol{\xi}[l] &gt; -0.5\) and all components \(\boldsymbol{x}_i[l] &gt; -0.5\) of \(\boldsymbol{X}^T\)  are set to zero,
+giving \(\boldsymbol{\xi}_{\text{sparse}}\) and \(\boldsymbol{X}^T_{\text{sparse}}\), respectively.
+The sparse version of Eq. \eqref{eq:update_cpp5} now reads:</p>
+
+\[\begin{equation}
+\boldsymbol{\xi}^{\text{new}} = \tanh \left( \boldsymbol{X}\boldsymbol{X}^T_{\text{sparse}}\boldsymbol{\xi}_{\text{sparse}} \right) \ . \tag{20}
+\label{eq:update_cpp5_sparse}
+\end{equation}\]
+
+<p style="text-align: center;"><img src="/assets/continuous_hopfield_network/experiment_with_6_patterns_continuous_sparse.png" alt="not found" width="1000px" /></p>
+
+<p>Pattern retrieval now works for 6 stored patterns, but what about more patterns?</p>
+
+<p style="text-align: center;"><img src="/assets/continuous_hopfield_network/experiment_with_24_patterns_continuous_performer_beta25.png" alt="not found" /></p>
+
+<h4 id="modern-continuous-hopfield-networks">Modern Continuous Hopfield Networks</h4>
+
+<p>It seems that a model with larger storage capacity is needed. Recently, <strong><a href="https://ml-jku.github.io/hopfield-layers/">Modern Continuous Hopfield Networks</a></strong> were
+introduced in the paper <a href="https://arxiv.org/abs/2008.02217">Hopfield Networks is All You Need</a>. It was shown that modern continuous Hopfield Networks
+can store exponentially (in \(d\)) many patterns.
+To retrieve a pattern \(\boldsymbol{\xi}\), the update rule of modern continuous Hopfield Networks for \(N\) stored patterns \(\boldsymbol{X} = (\boldsymbol{x}_1,\ldots,\boldsymbol{x}_N)\) reads:</p>
+
+\[\begin{equation}
+\boldsymbol{\xi}^{\text{new}} = \boldsymbol{X} \text{softmax} (\beta \boldsymbol{X}^T \boldsymbol{\xi}) \ , \tag{21}
+\label{eq:update_modern_hopfield}
+\end{equation}\]
+
+<p>where \(\beta\) is the <strong>inverse temperature</strong>, which controls the <strong>learning dynamics</strong>.
+We choose the value \(\beta = 25\), which enables useful pattern retrieval for 6 stored patterns, but fails if 24 patterns are stored.
+Note that the learning dynamics for \(\beta = 25\) are different to the ones shown in the <a href="https://ml-jku.github.io/hopfield-layers/">Hopfield blog post</a>
+due to normalization of the patterns.</p>
+
+<p>For 6 stored patterns:</p>
+
+<p style="text-align: center;"><img src="/assets/continuous_hopfield_network/experiment_with_6_patterns_continuous_softmax_beta25.png" alt="not found" width="1000px" /></p>
+
+<p>For 24 stored patterns:</p>
+
+<p style="text-align: center;"><img src="/assets/continuous_hopfield_network/experiment_with_24_patterns_continuous_softmax_beta25.png" alt="not found" /></p>
+
+<h4 id="sparse-modern-continuous-hopfield-networks">Sparse Modern Continuous Hopfield Networks</h4>
+
+<p>We will now again exploit the insight from above, namely that <strong>sparse patterns yield very large storage capacities</strong>.
+Therefore, in Eq. \eqref{eq:update_modern_hopfield} all components \(\boldsymbol{\xi}[l] &gt; -0.5\) and all components \(\boldsymbol{x}_i[l] &gt; -0.5\) of \(\boldsymbol{X}^T\)  are set to zero,
+giving \(\boldsymbol{\xi}_{\text{sparse}}\) and \(\boldsymbol{X}^T_{\text{sparse}}\), respectively.
+The sparse version of Eq. \eqref{eq:update_modern_hopfield} now reads:</p>
+
+\[\begin{equation}
+\boldsymbol{\xi}^{\text{new}} = \boldsymbol{X} \text{softmax} (\beta \boldsymbol{X}_{\text{sparse}}^T \boldsymbol{\xi}_{\text{sparse}}) \ , \tag{22}
+\label{eq:update_modern_hopfield_sparse}
+\end{equation}\]
+
+<p>For 6 stored patterns:</p>
+
+<p style="text-align: center;"><img src="/assets/continuous_hopfield_network/experiment_with_6_patterns_continuous_softmax_beta25_sparse.png" alt="not found" /></p>
+
+<p>For 24 stored patterns:</p>
+
+<p style="text-align: center;"><img src="/assets/continuous_hopfield_network/experiment_with_24_patterns_continuous_softmax_beta25_sparse.png" alt="not found" /></p>
+
+<h4 id="performer-networks">Performer Networks</h4>
+
+<p>In the paper <a href="https://arxiv.org/abs/2008.02217">Hopfield Networks is All You Need</a>, it is further shown that the update rule of Eq. \eqref{eq:update_modern_hopfield} of modern continuous Hopfield Networks
+is the self-attention of transformer networks. We therefore use the insights of the Performer paper to substitute Eq. \eqref{eq:update_modern_hopfield} by:</p>
+
+\[\begin{equation}
+\boldsymbol{\xi'}^{\text{new}} = \boldsymbol{X} \ \mathbb{E}\left[ \boldsymbol{X'}^T \boldsymbol{\xi'} \widehat{\boldsymbol{D}}^{-1}\right]   \ . \tag{23}
+\label{eq:update_performer_one_step}
+\end{equation}\]
+
+<p>Equation \eqref{eq:update_performer_one_step} directly follows out (of the transposed) of Eq. \eqref{eq:performer_attention} by setting \(\boldsymbol{Q}\) to \(\boldsymbol{\xi}\) (pattern to retrieve) and setting \(\boldsymbol{K}\) and \(\boldsymbol{V}\) to \(\boldsymbol{X}\) (matrix of stored patterns).
+To obtain \(\boldsymbol{X'}\) and \(\boldsymbol{\xi'}\), we use the mapping \(\phi(\boldsymbol{z})\) introduced in Eq. \eqref{eq:kernel_function}, using \(h(\boldsymbol{z}) = \exp\left( - \frac{\|\boldsymbol{z} \|^2}{2} \right)\), \(l=1\), \(f_1(\cdot) = \exp(\cdot)\), and one drawn set of orthogonal random features \(\boldsymbol{w}_1, \ldots, \boldsymbol{w}_r\). In the mapping, we further set \(\boldsymbol{z}\) to \(\sqrt{\beta} \boldsymbol{z}\) to operate in the same regime as Eq. \eqref{eq:update_modern_hopfield}. \(\mathbb{E}\) is the expectation over \(\boldsymbol{X'}^T \boldsymbol{\xi'} \widehat{\boldsymbol{D}}^{-1}\).</p>
+
+<p>For 6 stored patterns:</p>
+
+<p style="text-align: center;"><img src="/assets/continuous_hopfield_network/experiment_with_6_patterns_continuous_performer_beta25.png" alt="not found" width="1000px" /></p>
+
+<p>For 24 stored patterns:</p>
+
+<p style="text-align: center;"><img src="/assets/continuous_hopfield_network/experiment_with_24_patterns_continuous_performer_beta25.png" alt="not found" /></p>
+
+<p>For clarity, let’s now visualize what is going on here:</p>
+
+<p style="text-align: center;"><img src="/assets/drawing_none_sparse.svg" alt="not found" /></p>
+
+<h4 id="sparse-performer-networks">Sparse Performer Networks</h4>
+
+<p>We will now again exploit the insight from above, namely that <strong>sparse patterns yield very large storage capacities</strong>.
+Therefore, in Eq. \eqref{eq:update_performer_one_step} all components \(\boldsymbol{\xi}[l] &gt; 0.5\) and all components \(\boldsymbol{x}_i[l] &gt; 0.5\) of \(\boldsymbol{X}^T\)  are set to zero,
+giving \(\boldsymbol{\xi}_{\text{sparse}}\) and \(\boldsymbol{X}^T_{\text{sparse}}\). Interestingly, in this case too much sparseness hurts more than it helps. 
+The sparse version of Eq. \eqref{eq:update_performer_one_step} now reads:</p>
+
+\[\begin{equation}
+\boldsymbol{\xi'}^{\text{new}} = \boldsymbol{X} \ \mathbb{E}\left[\boldsymbol{X'}_{\text{sparse}}^T \boldsymbol{\xi'}_{\text{sparse}} \widehat{\boldsymbol{D}}^{-1}\right]   \ . \tag{24}
+\label{eq:update_performer_one_step_sparse}
+\end{equation}\]
+
+<p>For 6 stored patterns:</p>
+
+<p style="text-align: center;"><img src="/assets/continuous_hopfield_network/experiment_with_6_patterns_continuous_performer_beta25_sparse.png" alt="not found" width="1000px" /></p>
+
+<p>For 24 stored patterns:</p>
+
+<p style="text-align: center;"><img src="/assets/continuous_hopfield_network/experiment_with_24_patterns_continuous_performer_beta25_sparse.png" alt="not found" /></p>
+
+<p>For clarity, let’s now again visualize what is going on here:</p>
+
+<p style="text-align: center;"><img src="/assets/drawing_sparse.svg" alt="not found" /></p>
+
+<h2 id="material">Material</h2>
+
+<ul>
+  <li>
+    <p><a href="https://arxiv.org/abs/2009.14794">Paper: Rethinking Attention with Performers</a></p>
+  </li>
+  <li>
+    <p><a href="https://ai.googleblog.com/2020/10/rethinking-attention-with-performers.html">Blog post to paper: Rethinking Attention with Performers</a></p>
+  </li>
+  <li>
+    <p><a href="https://arxiv.org/abs/2008.02217">Paper: Hopfield Networks is All You Need</a></p>
+  </li>
+  <li>
+    <p><a href="https://ml-jku.github.io/hopfield-layers/">Blog post to paper: Hopfield Networks is All You Need</a></p>
+  </li>
+  <li>
+    <p><a href="https://www.youtube.com/watch?v=xJrKIPwVwGM&amp;t=1152s">Yannic Kilcher’s video on Performer</a></p>
+  </li>
+  <li>
+    <p><a href="https://www.youtube.com/watch?v=nv6oFDp6rNQ&amp;t=2920s">Yannic Kilcher’s video on Hopfield Networks</a></p>
+  </li>
+</ul>
+
+<h2 id="correspondence">Correspondence</h2>
+
+<p>This blog post was written by <a href="https://www.jku.at/en/institute-for-machine-learning/about-us/team/ass-prof-dr-johannes-brandstetter/">Johannes Brandstetter</a> and <a href="https://www.jku.at/en/institute-for-machine-learning/about-us/team/hubert-ramsauer/">Hubert Ramsauer</a>.</p>
+
+<p>Contributions by Markus Holzleitner and Sepp Hochreiter.</p>
+
+
+      <footer class="site-footer">
+        
+          <span class="site-footer-owner"><a href="https://github.com/brandste/blog-post-performer">blog-post-performer</a> is maintained by <a href="https://github.com/brandste">brandste</a>.</span>
+        
+        <span class="site-footer-credits">This page was generated by <a href="https://pages.github.com">GitHub Pages</a>.</span>
+      </footer>
+    </main>
+  </body>
+</html>
